@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Chord Timing Tester</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='28'>⌨</text></svg>">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="header-inner">
+    <div class="app-brand">
+      <span class="app-icon">⌨</span>
+      <span class="app-title">Chord Timing Tester</span>
+    </div>
+    <div class="header-actions">
+      <button id="themeToggle" class="icon-btn" title="Toggle theme">☀</button>
+    </div>
+  </div>
+</header>
+
+<nav class="tab-bar">
+  <div class="tab-bar-inner">
+    <button class="tab-btn active" data-tab="test">Test</button>
+    <button class="tab-btn" data-tab="library">Library</button>
+  </div>
+</nav>
+
+<main>
+  <!-- Test Tab -->
+  <section id="tab-test" class="tab-content active">
+    <div class="tab-inner">
+      <h2 class="section-title">Chord Timing Tester</h2>
+
+      <div class="info-banner">
+        <strong>How it works:</strong> Enter a word and the chord you use to type it, then start the test.
+        Each round the word appears on screen — type it using your chord while the app measures exactly how long
+        you hold the chord (from the first key pressed to the last key released).
+        Repeat as many times as you like, then save the session to track your progress or compare multiple chords for the same word.
+        Don't worry about making mistakes, they are not taken into account in the stats. 
+      </div>
+
+      <!-- Step 1: Word & Chord -->
+      <div class="form-section">
+        <div class="form-section-header">
+          <span class="step-badge">1</span>
+          <span class="form-section-title-text">What to test</span>
+        </div>
+        <p class="form-hint">
+          Enter the word you want to practice and a label for the chord shortcut you'll use (e.g. <code>t+h+e</code>).
+          The chord label is just for your reference as an idicator for the records — the app detects what your device actually outputs. 
+          So it has no tractical effect. You can also call it "test1" if you like.
+          Instead of manually entering the word and chord, you can use <strong>Load from Library →</strong> to fill both fields automatically from your synced chord list.
+        </p>
+        <div class="form-row">
+          <div class="field-group">
+            <label class="label" for="wordInput">Word</label>
+            <input id="wordInput" type="text" class="input-med" autocomplete="off" placeholder="e.g. the">
+          </div>
+          <div class="field-group">
+            <label class="label" for="chordInput">Chord keys</label>
+            <input id="chordInput" type="text" class="input-med" autocomplete="off" placeholder="e.g. t+h+e">
+          </div>
+          <button id="loadFromLibraryBtn" class="btn btn-secondary" style="align-self:flex-end">Load from Library →</button>
+        </div>
+      </div>
+
+      <!-- Step 2: Lead-in Words -->
+      <div class="form-section">
+        <div class="form-section-header">
+          <span class="step-badge">2</span>
+          <span class="form-section-title-text">Lead-in Words</span>
+          <span class="badge-optional">optional</span>
+        </div>
+        <p class="form-hint">
+          In real typing you always come <em>from</em> some previous word before you type the next one.
+          <strong>Lead-in words</strong> simulate this: each test round starts with a lead-in word you type first —
+          immediately followed by the target word. This makes timing more realistic and lets you measure the
+          <em>transition pause</em> (how many milliseconds you wait between finishing the lead-in chord and
+          pressing the first key of the target chord). When multiple lead-in words are listed, one is chosen
+          <strong>at random</strong> each round so no two rounds feel identical.
+          Instead of pressing the "add" button, you can also just type a word and press Enter.
+          <br><em>Leave empty to test the target word in complete isolation.</em>
+        </p>
+        <div id="leadInTags" class="lead-in-tags">
+          <span class="lead-in-empty-hint text-muted">No lead-in words — testing in isolation mode.</span>
+        </div>
+        <div class="form-row" style="margin-top:.5rem;flex-wrap:wrap">
+          <input id="leadInAddInput" type="text" class="input-med" placeholder="Type a word and press Enter…" autocomplete="off">
+          <button id="leadInAddBtn" class="btn btn-secondary">+ Add</button>
+          <button id="leadInFromLibraryBtn" class="btn btn-secondary">From Library…</button>
+          <button id="leadInClearBtn" class="btn btn-secondary">Clear all</button>
+        </div>
+        <!-- Inline library picker -->
+        <div id="leadInLibPicker" class="lead-in-lib-picker hidden">
+          <div class="lead-in-lib-picker-header">
+            <strong>Pick from Library</strong>
+            <input id="leadInLibSearch" type="text" class="input-small" placeholder="Search words…" autocomplete="off">
+            <button id="leadInLibClose" class="btn btn-secondary btn-sm">✕ Close</button>
+          </div>
+          <div id="leadInLibList" class="lead-in-lib-list"></div>
+        </div>
+        <!-- Track pause option -->
+        <label class="checkbox-label" style="margin-top:.6rem">
+          <input id="trackPauseCheckbox" type="checkbox" disabled>
+          <span>
+            <strong>Measure transition pause</strong>
+            <span class="form-hint-inline"> — records how many milliseconds you wait between finishing the lead-in word and pressing the first key of the target chord. Automatically enabled when lead-in words are set.</span>
+          </span>
+        </label>
+      </div>
+
+      <div class="btn-row">
+        <button id="startTestBtn" class="btn btn-primary btn-lg">▶ Start Test</button>
+      </div>
+
+      <!-- Active test area (hidden until started) -->
+      <div id="testArea" class="hidden test-area-box">
+        <div id="roundLabel" class="test-phase-hint"></div>
+        <div id="wordDisplay" class="test-word"></div>
+        <input id="typingInput" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="word-input" placeholder="Your chord output appears here…">
+        <div id="testStats" class="test-stats"></div>
+        <div class="btn-row" style="justify-content:center;margin-top:.75rem">
+          <button id="finishTestBtn" class="btn btn-primary">Finish &amp; Save</button>
+          <button id="discardTestBtn" class="btn btn-secondary">Discard</button>
+        </div>
+      </div>
+
+      <hr>
+      <h3 class="section-title">Results</h3>
+      <p class="form-hint" style="margin-bottom:.25rem">All saved sessions are stored locally in your browser. Click any row to expand a timing chart. Tick multiple sessions and use <strong>Compare selected</strong> to view them side by side.
+    
+        You can click on separate entries to view their charts and check on the progression during that session.
+    </p>
+      <div class="form-row">
+        <label class="label">Filter by word</label>
+        <input id="filterInput" type="text" class="input-small" placeholder="Word…">
+        <button id="compareBtn" class="btn btn-secondary" disabled>Compare selected</button>
+      </div>
+      <div id="resultsTable"></div>
+      <div class="btn-row">
+        <button id="resetSelectedBtn" class="btn btn-danger">Delete selected</button>
+        <button id="exportBtn" class="btn btn-secondary">Export JSON</button>
+        <button id="importBtn" class="btn btn-secondary">Import JSON</button>
+        <button id="resetAllBtn" class="btn btn-danger">Delete all</button>
+      </div>
+      <div id="comparePanel" class="hidden"></div>
+    </div>
+  </section>
+
+  <!-- Library Tab -->
+  <section id="tab-library" class="tab-content">
+    <div class="tab-inner">
+      <h2 class="section-title">Chord Library</h2>
+      <div class="info-banner">
+        <strong>What is the Library?</strong> Your Library holds all word→chord mappings from your CharaChorder device.
+        Load it once via USB or JSON file, then use <strong>Load from Library →</strong> in the Test tab to instantly fill in any word and its chord,
+        or use <strong>From Library…</strong> in step 2 above to pick lead-in words for more realistic practice.
+      </div>
+      <div id="ccBrowserWarn" class="hidden">
+        <div class="warn-banner">
+          ⚠ <strong>Web Serial requires Chrome or Edge</strong> on <code>https://</code> or <code>http://localhost</code>.
+          Opening this file directly as <code>file://</code> will not work — serve it locally:
+          <code>python3 -m http.server</code> → open <code>http://localhost:8000</code>
+        </div>
+      </div>
+      <div class="form-section">
+        <div class="form-section-header">
+          <span class="form-section-title-text">Load your chord library</span>
+        </div>
+        <p class="form-hint">
+          <strong>Connect Device:</strong> Plug your CharaChorder in via USB, click the button, and select it from the browser's port picker. All chords are read automatically (Chrome/Edge only).<br>
+          <strong>Import JSON:</strong> Load a CharaChorder backup file, e.g. exported from charachorder.io or the ChordTrainer app.
+        </p>
+        <div class="form-row">
+          <button id="ccConnectBtn" class="btn btn-primary">⚡ Connect Device (USB/Serial)</button>
+          <button id="ccImportBtn" class="btn btn-secondary">📂 Import JSON File</button>
+          <button id="clearLibraryBtn" class="btn btn-secondary">Clear Library</button>
+          <input id="ccJsonInput" type="file" accept=".json" class="hidden">
+        </div>
+        <div id="ccConnectStatus" class="cc-status-msg hidden"></div>
+      </div>
+      <div class="form-row">
+        <label class="label">Search</label>
+        <input id="librarySearchInput" type="text" class="input-small" placeholder="Filter words…">
+      </div>
+      <div id="libraryTable"></div>
+    </div>
+  </section>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
